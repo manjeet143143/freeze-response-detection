@@ -12,17 +12,17 @@ import time
 # SETTINGS
 ###################################
 
-PHONE_IP = "10.50.73.12"   # Change if hotspot IP changes
+PHONE_IP = "10.145.180.40"
 
 ###################################
 # LOAD MODEL
 ###################################
 
-model = pickle.load(open("model.pkl", "rb"))
+model = pickle.load(open("model.pkl","rb"))
 
 st.set_page_config(
-page_title = "Women Safety AI",
-layout = "wide"
+page_title="Women Safety AI",
+layout="wide"
 )
 
 ###################################
@@ -44,22 +44,16 @@ Safety when you can't react
 st.divider()
 
 ###################################
-# CONTACTS
+# SOS BUTTON
 ###################################
 
-st.sidebar.header("Emergency Contacts")
+if st.button("🚨 SOS EMERGENCY"):
 
-contacts=[
-"Mom",
-"Friend",
-"Brother"
-]
-
-for c in contacts:
-    st.sidebar.write("📞",c)
+    st.session_state.sms_sent=False
+    st.session_state.force_alert=True
 
 ###################################
-# SESSION MEMORY
+# SESSION VARIABLES
 ###################################
 
 if "movement_list" not in st.session_state:
@@ -74,11 +68,14 @@ if "still_time" not in st.session_state:
 if "sms_sent" not in st.session_state:
     st.session_state.sms_sent=False
 
+if "force_alert" not in st.session_state:
+    st.session_state.force_alert=False
+
 ###################################
-# EMERGENCY SMS
+# SMS FUNCTION
 ###################################
 
-def send_emergency_sms():
+def send_sms():
 
     lat=28.61
     lon=77.23
@@ -89,20 +86,14 @@ def send_emergency_sms():
 
     st.error("🚨 EMERGENCY ALERT SENT")
 
-    st.subheader("Contacts Notified")
-
-    for c in contacts:
-        st.write("📞",c)
-
-    st.divider()
-
-    st.subheader("Message")
+    st.write("Mom Notified")
+    st.write("Friend Notified")
+    st.write("Brother Notified")
 
     st.code(f"""
 EMERGENCY ALERT
 
-Possible danger detected.
-User not responding.
+Possible danger detected
 
 Location:
 {link}
@@ -129,21 +120,26 @@ try:
 
     movement=abs(ax)+abs(ay)+abs(az)
 
-    audio=0.5
+    ###################################
+    # NOISE FILTER
+    ###################################
+
+    if movement < 0.08:
+        movement=0
 
 except:
 
     st.warning("Phone sensor not connected")
 
-    movement=1.0
-    audio=0.5
+    movement=1
+
 
 ###################################
 # FREEZE TIMER
 ###################################
 
-if movement < 0.05:
-    st.session_state.still_time += 2
+if movement==0:
+    st.session_state.still_time+=2
 else:
     st.session_state.still_time=0
     st.session_state.sms_sent=False
@@ -160,25 +156,11 @@ if len(st.session_state.movement_list)>30:
     st.session_state.movement_list.pop(0)
 
 ###################################
-# PANIC DETECTION
-###################################
-
-panic=False
-
-if len(st.session_state.movement_list)>5:
-
-    last5=st.session_state.movement_list[-5:]
-
-    if max(last5)>2 and movement<0.05:
-
-        panic=True
-
-###################################
-# AI PREDICTION
+# AI MODEL
 ###################################
 
 data=pd.DataFrame(
-[[movement,audio,duration]],
+[[movement,0.5,duration]],
 columns=['movement','audio','duration']
 )
 
@@ -191,17 +173,9 @@ prob=model.predict_proba(data)[0][1]
 ###################################
 
 movement_score=max(0,1-movement)
-audio_score=max(0,1-audio)
 duration_score=duration/300
 
-risk_score=(
-movement_score*0.5+
-audio_score*0.3+
-duration_score*0.2
-)
-
-if panic:
-    risk_score+=0.3
+risk_score=movement_score*0.6 + duration_score*0.4
 
 safe_risk=max(0,min(risk_score,1))
 
@@ -220,21 +194,27 @@ c4.metric("Freeze Probability",round(prob*100,1))
 
 st.progress(safe_risk)
 
-st.divider()
-
 ###################################
-# PANIC ALERT
+# RISK LEVEL
 ###################################
 
-if panic:
+if risk_score<0.3:
 
-    st.warning("⚠ Panic Pattern Detected")
+    st.success("🟢 LOW RISK")
+
+elif risk_score<0.6:
+
+    st.warning("🟡 MEDIUM RISK")
+
+else:
+
+    st.error("🔴 HIGH RISK")
 
 ###################################
-# SAFE/DANGER
+# ALERT LOGIC
 ###################################
 
-if prediction[0]==1 and risk_score > 0.6:
+if (prediction[0]==1 and risk_score>0.6) or st.session_state.force_alert:
 
     st.markdown("""
     <h1 style='text-align:center;color:red'>
@@ -244,21 +224,13 @@ if prediction[0]==1 and risk_score > 0.6:
 
     if st.session_state.sms_sent==False:
 
-        send_emergency_sms()
+        send_sms()
 
         st.session_state.sms_sent=True
 
         st.session_state.history.append(
         "Emergency Alert Sent"
         )
-
-else:
-
-    st.markdown("""
-    <h1 style='text-align:center;color:green'>
-    ✅ SAFE
-    </h1>
-    """,unsafe_allow_html=True)
 
 ###################################
 # GRAPH
@@ -283,7 +255,7 @@ m=folium.Map(location=[lat,lon],zoom_start=15)
 
 folium.Marker([lat,lon]).add_to(m)
 
-st.subheader("📍 Location")
+st.subheader("Location")
 
 st_folium(m,width=700)
 
@@ -296,6 +268,7 @@ st.divider()
 st.header("Alert History")
 
 for h in st.session_state.history:
+
     st.write("⚠",h)
 
 ###################################

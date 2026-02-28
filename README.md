@@ -29,18 +29,22 @@ Detects freeze state using machine learning.
 
 ### 📱 Real Phone Sensors
 Uses smartphone accelerometer via Phyphox.
+![Movement Tracker](images/movement_graph.png)
 
 ### ⚠ Panic Detection
 Detects sudden movement followed by immobility.
 
 ### 🚨 Automatic Alerts
 Triggers alerts without user interaction.
+![Alert](images/danger.png)
 
 ### 📊 Live Dashboard
 Real-time monitoring using Streamlit.
+![Dashboard](images/dashboard.png)
 
 ### 📍 Location Tracking
 Shows live user location.
+![Location](images/loacation.png)
 
 ### 📲 Emergency SMS Simulation
 Simulates alert messages to emergency contacts.
